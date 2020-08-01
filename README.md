@@ -1,5 +1,5 @@
 # Symfony MongoDB Document Maker
-A Symfony command to generate MongoDB document PHP classes with annotations, getter and setters.
+A Symfony command to generate MongoDB document PHP classes with annotations, getter and setters. Inspired by [Symfony's Maker Bundle](https://symfony.com/doc/current/bundles/SymfonyMakerBundle/index.html).
 
 Installation
 ------------
