@@ -1,0 +1,22 @@
+{
+    "name": "samuel-tallet/symfony-mongodb-document-maker",
+    "description": "A Symfony command to generate MongoDB document PHP classes.",
+    "type": "library",
+    "require": {
+        "php": ">=7.2",
+        "symfony/console": "^4.4",
+        "nayjest/str-case-converter": "^1.0"
+    },
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Samuel Tallet",
+            "email": "samuel.tallet@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "SymfonyMongoDBDocumentMaker\\": "src/"
+        }
+    }
+}
