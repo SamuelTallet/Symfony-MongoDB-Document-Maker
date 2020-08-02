@@ -5,6 +5,6 @@ use SymfonyMongoDBDocumentMaker\GenerateCommand;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-$application = new Application('Symfony MongoDB Document Maker', '1.0.0');
+$application = new Application('Symfony MongoDB Document Maker', '1.0.1');
 $application->add(new GenerateCommand());
 $application->run();
