@@ -18,11 +18,11 @@ class PHPClassGenerator {
     private const INDENT = '    ';
 
     /**
-     * Name of MongoDB collection.
+     * Metadata of MongoDB collection.
      * 
-     * @var string
+     * @var array
      */
-    private $collectionName;
+    private $collection;
 
     /**
      * Metadata of MongoDB fields.
@@ -31,9 +31,9 @@ class PHPClassGenerator {
      */
     private $fields;
 
-    public function __construct(string $collectionName, array $fields) {
+    public function __construct(array $collection, array $fields) {
 
-        $this->collectionName = $collectionName;
+        $this->collection = $collection;
         $this->fields = $fields;
         
     }
@@ -48,12 +48,13 @@ class PHPClassGenerator {
         $phpClass = '<?php' . PHP_EOL;
         $phpClass .= 'namespace App\Document;' . PHP_EOL . PHP_EOL;
 
-        $phpClass .= 'use Doctrine\ODM\MongoDB\Mapping\Annotations as MongoDB;' . PHP_EOL . PHP_EOL;
+        $phpClass .= 'use Doctrine\ODM\MongoDB\Mapping\Annotations as MongoDB;' . PHP_EOL;
+        $phpClass .= 'use Doctrine\Common\Collections\ArrayCollection;' . PHP_EOL . PHP_EOL;
 
         $phpClass .= '/**' . PHP_EOL;
-        $phpClass .= ' * @MongoDB\Document(collection="' . $this->collectionName . '")' . PHP_EOL;
+        $phpClass .= ' * @MongoDB\\' . ( $this->collection['is_embedded'] ? 'Embedded' : '' ) . 'Document(collection="' . $this->collection['name'] . '")' . PHP_EOL;
         $phpClass .= ' */' . PHP_EOL;
-        $phpClass .= 'class ' . Str::toCamelCase($this->collectionName) . ' {' . PHP_EOL . PHP_EOL;
+        $phpClass .= 'class ' . Str::toCamelCase($this->collection['name']) . ' {' . PHP_EOL . PHP_EOL;
 
         // Properties.
 
@@ -65,11 +66,41 @@ class PHPClassGenerator {
         foreach ($this->fields as $fieldName => $fieldMetadata) {
 
             $phpClass .= self::INDENT . '/**' . PHP_EOL;
-            $phpClass .= self::INDENT . ' * @MongoDB\Field(type="' . $fieldMetadata['type'] . '")' . PHP_EOL;
+
+            if ( array_key_exists('type', $fieldMetadata) ) {
+
+                $phpClass .= self::INDENT . ' * @MongoDB\Field(type="' . $fieldMetadata['type'] . '")' . PHP_EOL;
+
+            } elseif ( array_key_exists('embed_one', $fieldMetadata) ) {
+
+                $phpClass .= self::INDENT . ' * @MongoDB\EmbedOne(targetDocument=' . Str::toCamelCase($fieldMetadata['embed_one']) . '::class)' . PHP_EOL;
+
+            } elseif ( array_key_exists('embed_many', $fieldMetadata) ) {
+
+                $phpClass .= self::INDENT . ' * @MongoDB\EmbedMany(targetDocument=' . Str::toCamelCase($fieldMetadata['embed_many']) . '::class)' . PHP_EOL;
+
+            }
+
             $phpClass .= self::INDENT . ' */' . PHP_EOL;
             $phpClass .= self::INDENT . 'private $' . $fieldName . ';' . PHP_EOL . PHP_EOL;
 
         }
+
+        // Constructor.
+
+        $phpClass .= self::INDENT . 'public function __construct() {' . PHP_EOL;
+
+        foreach ($this->fields as $fieldName => $fieldMetadata) {
+
+            if ( array_key_exists('embed_many', $fieldMetadata) ) {
+
+                $phpClass .= self::INDENT . self::INDENT . '$this->' . $fieldName . ' = new ArrayCollection();' . PHP_EOL;
+            
+            }
+
+        }
+
+        $phpClass .= self::INDENT . '}' . PHP_EOL . PHP_EOL;
 
         // Getters and setters.
 
@@ -84,7 +115,7 @@ class PHPClassGenerator {
 
         foreach ($this->fields as $fieldName => $fieldMetadata) {
 
-            $phpClass .= self::INDENT . 'public function ' . ( $fieldMetadata['type'] === 'boolean' ? 'is' : 'get' ) . Str::toCamelCase($fieldName) . '() {' . PHP_EOL;
+            $phpClass .= self::INDENT . 'public function ' . ( array_key_exists('type', $fieldMetadata) && $fieldMetadata['type'] === 'boolean' ? 'is' : 'get' ) . Str::toCamelCase($fieldName) . '() {' . PHP_EOL;
             $phpClass .= self::INDENT . self::INDENT . 'return $this->' . $fieldName . ';' . PHP_EOL;
             $phpClass .= self::INDENT . '}' . PHP_EOL . PHP_EOL;
 
@@ -97,7 +128,7 @@ class PHPClassGenerator {
 
         $phpClass .= '}';
 
-        $phpClassFilename = __DIR__ . '/../' . Str::toCamelCase($this->collectionName) . '.php';
+        $phpClassFilename = __DIR__ . '/../' . Str::toCamelCase($this->collection['name']) . '.php';
 
         if ( file_put_contents($phpClassFilename, $phpClass) === false ) {
             throw new \Exception('Impossible to write the generated PHP class.');

@@ -4,7 +4,7 @@ namespace SymfonyMongoDBDocumentMaker;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Generate command for Symfony console component.
@@ -64,64 +64,80 @@ class GenerateCommand extends Command {
      */
     public function execute(InputInterface $input, OutputInterface $output) : int {
 
-        $questionHelper = $this->getHelper('question');
+        $style = new SymfonyStyle($input, $output);
+        $style->title('Symfony MongoDB Document Maker');
+        $collection = [];
 
-        $question = new Question(
-            '<info>> Enter the name of the MongoDB collection.</info> <comment>(e.g. user)</comment>' . PHP_EOL
-        );
+        $collection['name'] = $style->ask('Enter the name of the MongoDB collection <comment>(e.g. user)</comment>');
 
-        $collectionName = $questionHelper->ask($input, $output, $question);
+        if ( is_null($collection['name']) ) {
 
-        if ( is_null($collectionName) ) {
-
-            $output->write('<error>Error: You entered no collection name.</error>');
+            $style->error('You entered no collection name.');
             return 1;
 
         }
+
+        $collection['is_embedded'] = $style->confirm('Does this MongoDB document will be embedded into another?', false);
 
         $fieldName = null;
         $fields = [];
 
         do {
 
-            $question = new Question(
-                '<info>> Enter the name of a new MongoDB field.</info> <comment>(e.g. firstname)</comment>'
-                . ' <info>or press enter if you want to stop adding fields.</info>' . PHP_EOL
+            $fieldName = $style->ask(
+                'Enter the name of a new MongoDB field <comment>(e.g. firstname)</comment>'
+                . ' or press enter if you want to stop adding fields'
             );
-
-            $fieldName = $questionHelper->ask($input, $output, $question);
 
             if ( !is_null($fieldName) ) {
 
-                $question = new Question(
-                    '<info>> Enter the type of the "' . $fieldName . '" MongoDB field.</info>'
-                    . ' <comment>(e.g. boolean, collection, date, int, string)</comment>' . PHP_EOL
-                );
-    
-                $fieldType = $questionHelper->ask($input, $output, $question);
+                // XXX Invalid choices are handled by $style->choice.
+                $fieldEmbedCount = $style->choice('How many documents does the "' . $fieldName . '" MongoDB field embed?', ['zero', 'one', 'many'], 'zero');
 
-                if ( !in_array($fieldType, $this->getSupportedFieldTypes()) ) {
+                if ( $fieldEmbedCount === 'one' || $fieldEmbedCount === 'many' ) {
 
-                    $output->write(
-                        '<error>Error: You entered an invalid field type.'
-                        . ' See: https://www.doctrine-project.org/projects/doctrine-mongodb-odm/en/current/reference/basic-mapping.html#doctrine-mapping-types</error>'
+                    $targetEmbeddedDocument = $style->ask('Enter the name of the collection to be embedded in the "' . $fieldName . '" MongoDB field');
+
+                    if ( is_null($targetEmbeddedDocument) ) {
+
+                        $style->error('You entered no collection name.');
+                        return 2;
+
+                    }
+
+                    $fields[$fieldName]['embed_' . $fieldEmbedCount] = $targetEmbeddedDocument;
+
+                } elseif ( $fieldEmbedCount === 'zero' ) {
+
+                    $fieldType = $style->ask(
+                        'Enter the type of the "' . $fieldName . '" MongoDB field'
+                        . ' <comment>(e.g. boolean, collection, date, int, string)</comment>'
                     );
-                    return 2;
-
+    
+                    if ( !in_array($fieldType, $this->getSupportedFieldTypes()) ) {
+    
+                        $style->error(
+                            'You entered an invalid field type.'
+                            . ' See: https://www.doctrine-project.org/projects/doctrine-mongodb-odm/en/current/reference/basic-mapping.html#doctrine-mapping-types'
+                        );
+                        return 3;
+    
+                    }
+    
+                    $fields[$fieldName]['type'] = $fieldType;
+                    
                 }
-
-                $fields[$fieldName]['type'] = $fieldType;
 
             }
 
         } while ( !is_null($fieldName) );
 
-        $phpClassGenerator = new PHPClassGenerator($collectionName, $fields);
+        $phpClassGenerator = new PHPClassGenerator($collection, $fields);
         $phpClassFilename = $phpClassGenerator->generate();
 
-        $output->write(
-            '<info>PHP class successfully generated here: ' . $phpClassFilename . '.' . PHP_EOL
-            . 'Now move this file to: ${SymfonyProjectDir}/src/Document.</info>'
+        $style->success(
+            'PHP class successfully generated here: ' . $phpClassFilename . '.' . PHP_EOL
+            . 'Now move this file to: ${SYMFONY_PROJECT_DIR}/src/Document.'
         );
 
         return 0;
