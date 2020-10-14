@@ -4,7 +4,7 @@
     "type": "library",
     "require": {
         "php": ">=7.2",
-        "symfony/console": "^4.4",
+        "symfony/console": ">=4.4",
         "nayjest/str-case-converter": "^1.0"
     },
     "license": "GPL-3.0-or-later",
